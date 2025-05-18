@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hare and Hounds</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .game-container {
+            margin-top: 20px;
+            background-color: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(7, 60px);
+            grid-template-rows: repeat(5, 60px);
+            gap: 2px;
+            background-color: #333;
+            padding: 5px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .cell {
+            background-color: #f0d9b5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            border-radius: 3px;
+            font-size: 24px;
+            transition: transform 0.2s;
+        }
+        .cell:hover {
+            transform: scale(1.05);
+        }
+        .hare {
+            background-color: #27ae60;
+            color: white;
+        }
+        .hound {
+            background-color: #e74c3c;
+            color: white;
+        }
+        .valid-move {
+            background-color: #3498db;
+            cursor: pointer;
+        }
+        .status {
+            margin: 15px 0;
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+            min-height: 24px;
+        }
+        .rules {
+            margin-top: 20px;
+            max-width: 500px;
+            text-align: left;
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .rules ul {
+            padding-left: 20px;
+            margin: 10px 0;
+        }
+        .rules li {
+            margin-bottom: 8px;
+        }
+        #restart {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        #restart:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        #restart:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 3px rgba(0,0,0,0.2);
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            max-width: 400px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .modal h2 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        .modal p {
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        .modal button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .modal button:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <h1>Hare and Hounds</h1>
+    <div class="game-container">
+        <div class="grid" id="grid"></div>
+        <div class="status" id="status">Your turn (Hare)</div>
+        <button id="restart">↻ Restart Game</button>
+    </div>
+    <div class="rules">
+        <h3>Game Rules:</h3>
+        <ul>
+            <li>You control the <strong>green hare</strong> (🐇)</li>
+            <li>Computer controls the <strong>red hounds</strong> (🐕)</li>
+            <li><strong>Hare</strong> can move in any direction (including diagonally)</li>
+            <li><strong>Hounds</strong> can only move forward diagonally (downward)</li>
+            <li><strong>You win</strong> if the hare reaches the top row</li>
+            <li><strong>You win</strong> if the hounds have no valid moves</li>
+            <li><strong>Hounds win</strong> if they trap the hare with no moves</li>
+        </ul>
+    </div>
+
+    <div class="modal" id="resultModal">
+        <div class="modal-content">
+            <h2 id="modalTitle">Game Over</h2>
+            <p id="modalMessage"></p>
+            <button onclick="closeModal()">Play Again</button>
+        </div>
+    </div>
+
+<script>
+    const gridSize = { rows: 5, cols: 7 };
+    let harePosition = [4, 3];
+    let houndsPositions = [[0, 1], [0, 3], [0, 5]];
+    let currentPlayer = 'hare';
+    let validMoves = [];
+    let gameOver = false;
+
+    const grid = document.getElementById('grid');
+    const statusDisplay = document.getElementById('status');
+    const restartButton = document.getElementById('restart');
+    const resultModal = document.getElementById('resultModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalMessage = document.getElementById('modalMessage');
+
+    function initializeGame() {
+        harePosition = [4, 3];
+        houndsPositions = [[0, 1], [0, 3], [0, 5]];
+        currentPlayer = 'hare';
+        gameOver = false;
+        validMoves = [];
+        updateStatus();
+        drawGrid();
+        closeModal();
+    }
+
+    function drawGrid() {
+        grid.innerHTML = '';
+        for (let i = 0; i < gridSize.rows; i++) {
+            for (let j = 0; j < gridSize.cols; j++) {
+                const cell = document.createElement('div');
+                cell.classList.add('cell');
+                cell.dataset.row = i;
+                cell.dataset.col = j;
+
+                // Mark valid moves
+                if (validMoves.some(move => move[0] === i && move[1] === j)) {
+                    cell.classList.add('valid-move');
+                }
+
+                // Place pieces
+                if (i === harePosition[0] && j === harePosition[1]) {
+                    cell.classList.add('hare');
+                    cell.textContent = '🐇';
+                } else if (houndsPositions.some(hound => hound[0] === i && hound[1] === j)) {
+                    cell.classList.add('hound');
+                    cell.textContent = '🐕';
+                }
+
+                cell.addEventListener('click', () => handleCellClick(i, j));
+                grid.appendChild(cell);
+            }
+        }
+    }
+
+    function handleCellClick(row, col) {
+        if (gameOver || currentPlayer !== 'hare') return;
+
+        // If hare is selected, show valid moves
+        if (row === harePosition[0] && col === harePosition[1]) {
+            calculateValidMoves();
+            drawGrid();
+            return;
+        }
+        
+        // If a valid move is clicked, move the hare
+        if (validMoves.some(move => move[0] === row && move[1] === col)) {
+            harePosition = [row, col];
+            validMoves = [];
+            
+            // Check if hare reached top row (win condition)
+            if (harePosition[0] === 0) {
+                showResult("You Win!", "Congratulations! The hare reached safety!");
+                gameOver = true;
+                drawGrid();
+                return;
+            }
+            
+            currentPlayer = 'hound';
+            updateStatus();
+            drawGrid();
+            
+            // Computer's turn (hounds)
+            setTimeout(computerMove, 800);
+        }
+    }
+
+    function computerMove() {
+        if (gameOver) return;
+        
+        // Find the hound that can move closest to the hare
+        let bestMove = null;
+        let bestDistance = Infinity;
+        
+        for (let i = 0; i < houndsPositions.length; i++) {
+            const hound = houndsPositions[i];
+            const directions = [[1, -1], [1, 1]]; // Hounds can only move forward diagonally
+            
+            for (const [dr, dc] of directions) {
+                const newRow = hound[0] + dr;
+                const newCol = hound[1] + dc;
+                
+                if (isValidPosition(newRow, newCol) && !isOccupied(newRow, newCol)) {
+                    // Calculate distance to hare
+                    const distance = Math.abs(newRow - harePosition[0]) + Math.abs(newCol - harePosition[1]);
+                    
+                    if (distance < bestDistance) {
+                        bestDistance = distance;
+                        bestMove = { houndIndex: i, newPos: [newRow, newCol] };
+                    }
+                }
+            }
+        }
+        
+        if (bestMove) {
+            houndsPositions[bestMove.houndIndex] = bestMove.newPos;
+            currentPlayer = 'hare';
+            updateStatus();
+            
+            // Check if hare is trapped
+            calculateValidMoves();
+            if (validMoves.length === 0) {
+                showResult("Hounds Win!", "The hare is trapped! Better luck next time.");
+                gameOver = true;
+            }
+            validMoves = [];
+        } else {
+            // No valid moves for hounds - hare wins
+            showResult("You Win!", "The hounds are stuck! You outsmarted them!");
+            gameOver = true;
+        }
+        
+        drawGrid();
+    }
+
+    function calculateValidMoves() {
+        validMoves = [];
+        
+        if (currentPlayer === 'hare') {
+            // Hare can move to any adjacent cell (including diagonals)
+            const directions = [
+                [-1, -1], [-1, 0], [-1, 1],
+                [0, -1],          [0, 1],
+                [1, -1],  [1, 0], [1, 1]
+            ];
+            
+            for (const [dr, dc] of directions) {
+                const newRow = harePosition[0] + dr;
+                const newCol = harePosition[1] + dc;
+                
+                if (isValidPosition(newRow, newCol) && !isOccupied(newRow, newCol)) {
+                    validMoves.push([newRow, newCol]);
+                }
+            }
+        }
+    }
+
+    function isValidPosition(row, col) {
+        return row >= 0 && row < gridSize.rows && col >= 0 && col < gridSize.cols;
+    }
+
+    function isOccupied(row, col) {
+        if (row === harePosition[0] && col === harePosition[1]) return true;
+        return houndsPositions.some(hound => hound[0] === row && hound[1] === col);
+    }
+
+    function updateStatus() {
+        statusDisplay.textContent = currentPlayer === 'hare' ? "Your turn (Hare)" : "Computer's turn (Hounds)...";
+    }
+
+    function showResult(title, message) {
+        modalTitle.textContent = title;
+        modalMessage.textContent = message;
+        resultModal.style.display = 'flex';
+    }
+
+    function closeModal() {
+        resultModal.style.display = 'none';
+        initializeGame();
+    }
+
+    restartButton.addEventListener('click', initializeGame);
+
+    // Initialize the game
+    initializeGame();
+</script>
+</body>
+</html>
